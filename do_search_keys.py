@@ -3,8 +3,6 @@
 生成 group_id 到 密钥 的映射，写入文件保存
 """
 
-import os
-
 from rum_tools import SearchKeys
 
 target_folder = "./rum"
