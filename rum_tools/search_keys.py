@@ -4,7 +4,10 @@ import logging
 import os
 
 from pyrage import passphrase
-from quorum_mininode_py.crypto.account import keystore_to_private_key
+from quorum_mininode_py.crypto.account import (
+    keystore_to_private_key,
+    private_key_to_pubkey,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +50,11 @@ def get_keys(files, pwds: list) -> dict:
             # guess keys
             pvtkey = guess_pvtkey(keystore, pwds)
             agekey = guess_agekey(agebytes, pwds)
-            ikeys = (pvtkey, agekey)
+            if isinstance(pvtkey, str):
+                pubkey = private_key_to_pubkey(pvtkey)
+            else:
+                pubkey = None
+            ikeys = {"pvtkey": pvtkey, "agekey": agekey, "pubkey": pubkey}
             logger.debug("get keys %s", ikeys)
             # add to map
             group_id = ifile_name.strip("sign_")
