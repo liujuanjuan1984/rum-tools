@@ -108,6 +108,19 @@ def SearchKeys(
     keydata = get_keys(keyfiles, passwd_list)
     # write the keys to file
     if result_data_file:
+        # 如果目标文件已存在，就合并数据
+        if os.path.exists(result_data_file):
+            with open(result_data_file, "r", encoding="utf-8") as f:
+                idata = json.load(f)
+            for gid, keys in idata.items():
+                if gid not in keydata:
+                    keydata[gid] = keys
+                else:
+                    for key in keys:
+                        if key not in keydata[gid]:
+                            keydata[gid].append(key)
+            # keydata.update(idata)
+        # 写入文件
         with open(result_data_file, "w", encoding="utf-8") as f:
             f.write(json.dumps(keydata, indent=1))
     return keydata

@@ -3,7 +3,13 @@
 生成 group_id 到 密钥 的映射，写入文件保存
 """
 
+import logging
+
 from rum_tools import SearchKeys
+
+logging.basicConfig(
+    level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 
 target_folder = "./rum"
 
