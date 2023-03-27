@@ -4,10 +4,7 @@ import logging
 import os
 
 from pyrage import passphrase
-from quorum_mininode_py.crypto.account import (
-    keystore_to_private_key,
-    private_key_to_pubkey,
-)
+from quorum_mininode_py.crypto import account
 
 logger = logging.getLogger(__name__)
 
@@ -18,13 +15,13 @@ def search_files_starts_with(folder: str, *seps: str):
         for name in names:
             if name.startswith(seps):
                 ifile = os.path.join(root, name)
-                logger.debug("search file %s", ifile)
+                logger.info("search file %s", ifile)
                 yield ifile
 
 
 def read_file(ifile: str):
     """读取文件，包括 eth keystore 和 age pubkey"""
-    logger.debug("read file %s", ifile)
+    logger.info("read file %s", ifile)
     idata = None
     if not os.path.exists(ifile):
         logger.warning("file %s not exists", ifile)
@@ -51,11 +48,11 @@ def get_keys(files, pwds: list) -> dict:
             pvtkey = guess_pvtkey(keystore, pwds)
             agekey = guess_agekey(agebytes, pwds)
             if isinstance(pvtkey, str):
-                pubkey = private_key_to_pubkey(pvtkey)
+                pubkey = account.private_key_to_pubkey(pvtkey)
             else:
                 pubkey = None
             ikeys = {"pvtkey": pvtkey, "agekey": agekey, "pubkey": pubkey}
-            logger.debug("get keys %s", ikeys)
+            logger.info("get keys %s", ikeys)
             # add to map
             group_id = ifile_name.strip("sign_")
             if group_id not in keys_map:
@@ -82,7 +79,7 @@ def guess_pvtkey(keystore, pwds: list):
     """还原 eth 私钥"""
     if isinstance(keystore, str):
         keystore = json.loads(keystore)
-    return _guess(keystore_to_private_key, keystore, pwds)
+    return _guess(account.keystore_to_private_key, keystore, pwds)
 
 
 def guess_agekey(agebytes: bytes, pwds: list) -> str:
@@ -123,4 +120,5 @@ def SearchKeys(
         # 写入文件
         with open(result_data_file, "w", encoding="utf-8") as f:
             f.write(json.dumps(keydata, indent=1))
+        logger.info("write keys to file %s", result_data_file)
     return keydata

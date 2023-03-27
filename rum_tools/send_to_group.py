@@ -3,65 +3,17 @@
 """
 
 import datetime
+import logging
 import time
 
 from officy import Dir, JsonFile
+from quorum_data_py import converter
 from quorum_mininode_py import MiniNode, RumAccount
 from quorum_mininode_py.api import LightNodeAPI
 from quorum_mininode_py.client._http import HttpRequest
 from quorum_mininode_py.crypto.account import public_key_to_address
 
-
-def old_trx_to_new(trx):
-    """把旧版的 trx 转换成新版的 trx data 和 timestamp，用于发送"""
-    typeurl = trx.get("TypeUrl")
-    pubkey = trx.get("Publisher")
-    timestamp = trx.get("TimeStamp")
-
-    if typeurl == "quorum.pb.Person":
-        address = public_key_to_address(pubkey)
-        obj = {
-            "type": "Create",
-            "object": {
-                "type": "Profile",
-                "describes": {"type": "Person", "id": address},
-            },
-        }
-        name = trx.get("Content", {}).get("name", "")
-        if name:
-            obj["object"]["name"] = name
-
-        image = trx.get("Content", {}).get("image")
-        if image:
-            obj["object"]["image"] = [
-                {
-                    "mediaType": image["mediaType"],
-                    "content": image["content"],
-                    "type": "Image",
-                }
-            ]
-        return obj, timestamp
-
-    if typeurl == "quorum.pb.Object":
-        content = trx.get("Content", {})
-        content_type = content.get("type")
-        if content_type in ["Like", "Dislike"]:
-            obj = {
-                "type": content_type,
-                "object": {"type": "Note", "id": content.get("id")},
-            }
-        else:
-            if content.get("content") == "OBJECT_STATUS_DELETED":
-                return None, None
-            content["id"] = trx.get("TrxId")
-            if "inreplyto" in content:
-                content["inreplyto"] = {
-                    "type": "Note",
-                    "id": content["inreplyto"]["trxid"],
-                }
-            obj = {"type": "Create", "object": content}
-        return obj, timestamp
-    return None, None
+logger = logging.getLogger(__name__)
 
 
 def get_pvtkeys(keysfile, group_id):
@@ -103,6 +55,7 @@ def SendToGroup(keysfile, datadir, group_id, seed, progressfile):
     progress = JsonFile(progressfile).read({})
 
     for pubkey, pvtkey in keys.items():
+        logger.info("send from group %s, pubkey %s", group_id, pubkey)
         rum.account = RumAccount(pvtkey)
         http = HttpRequest(rum.group.chainapi, rum.group.jwt)
         rum.api = LightNodeAPI(http, rum.group, rum.account)
@@ -110,13 +63,19 @@ def SendToGroup(keysfile, datadir, group_id, seed, progressfile):
         for trx in get_trxs_from_local_files(datadir, group_id, pubkey):
             if trx["TrxId"] in sent_trxs:
                 continue
-            obj, timestamp = old_trx_to_new(trx)
-            if obj:
-                resp = rum.api.post_content(obj, timestamp)
-                print(datetime.datetime.now(), resp)
+            new = converter.from_old_chain(trx)
+            if new["data"]:
+                resp = rum.api.post_content(**new)
+                logger.info(
+                    "trx new %s from old %s",
+                    resp["trx_id"],
+                    trx["TrxId"],
+                )
                 time.sleep(0.2)
                 sent_trxs[trx["TrxId"]] = (rum.api.group_id, resp["trx_id"])
             else:
-                print("unknown trx", trx["TrxId"])
+                logger.warning("unknown trx", trx["TrxId"])
         progress[pubkey] = sent_trxs
         JsonFile(progressfile).write(progress)
+
+    logger.info("send from group %s done", group_id)

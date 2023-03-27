@@ -62,11 +62,14 @@ def SaveNodeTrxstoFile(url, jwt, datadir, group_id=None, progress: dict = None):
     progress = progress or {}
 
     for group_id in groups:
+        if group_id not in bot.api.groups_id:
+            logger.info("group %s not exist", group_id)
+            continue
         starttrx = progress.get(group_id) or get_progress(bot, datadir, group_id)
         progress[group_id] = starttrx
         bot.group_id = group_id
         info = bot.api.group_info()
-        logger.info("group %s info: %s", group_id, info)
+        logger.info("group info: %s", info)
         n = 0
         max_trxs_num = 200
         itrxs = []
@@ -83,5 +86,5 @@ def SaveNodeTrxstoFile(url, jwt, datadir, group_id=None, progress: dict = None):
             save_to_file(bot, datadir, itrxs)
             progress[group_id] = itrxs[-1]["TrxId"]
 
-    print(progress)
+    logger.info("progress: %s", progress)
     return progress
