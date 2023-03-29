@@ -2,7 +2,6 @@
 把旧链的 trx 转换成新链的 trx 并发送到指令 group
 """
 
-import datetime
 import logging
 import time
 
@@ -11,7 +10,6 @@ from quorum_data_py import converter
 from quorum_mininode_py import MiniNode, RumAccount
 from quorum_mininode_py.api import LightNodeAPI
 from quorum_mininode_py.client._http import HttpRequest
-from quorum_mininode_py.crypto.account import public_key_to_address
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +41,7 @@ def get_trxs_from_old_chain(oldchain_client, group_id, trx_id, pubkey):
     )
 
 
-def SendToGroup(keysfile, datadir, group_id, seed, progressfile):
+def SendToGroup(keysfile, datadir, group_id, seed, progressfile, client_type="old"):
     """
     datadir: 旧链的数据目录
     group_id: 待迁移的 group_id，即只迁移这个 group 的相关数据
@@ -63,7 +61,16 @@ def SendToGroup(keysfile, datadir, group_id, seed, progressfile):
         for trx in get_trxs_from_local_files(datadir, group_id, pubkey):
             if trx["TrxId"] in sent_trxs:
                 continue
-            new = converter.from_old_chain(trx)
+            if client_type == "old":
+                new = converter.from_old_chain(trx)
+            else:
+                new = converter.from_new_chain(trx)
+            # 标记删除的 trx 不重发
+            if (
+                new.get("data", {}).get("object", {}).get("content")
+                == "OBJECT_STATUS_DELETED"
+            ):
+                continue
             if new["data"]:
                 resp = rum.api.post_content(**new)
                 logger.info(
@@ -74,7 +81,7 @@ def SendToGroup(keysfile, datadir, group_id, seed, progressfile):
                 time.sleep(0.2)
                 sent_trxs[trx["TrxId"]] = (rum.api.group_id, resp["trx_id"])
             else:
-                logger.warning("unknown trx", trx["TrxId"])
+                logger.warning("unknown trx %s", trx["TrxId"])
         progress[pubkey] = sent_trxs
         JsonFile(progressfile).write(progress)
 

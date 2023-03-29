@@ -90,7 +90,6 @@ def guess_agekey(agebytes: bytes, pwds: list) -> str:
             agekey = agekey.decode()  # age-pvtkey
         except:
             agekey = base64.b64encode(agekey).decode()  # age-pubkey-bytes
-            pass
     return agekey
 
 

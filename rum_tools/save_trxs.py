@@ -11,7 +11,8 @@ import time
 from urllib.parse import urlparse
 
 from officy import Dir, JsonFile
-from rumpy import FullNode
+from quorum_fullnode_py import FullNode as NewFullNode
+from rumpy import FullNode as OldFullNode
 
 logger = logging.getLogger(__name__)
 
@@ -35,13 +36,36 @@ def get_progress(bot, datadir, group_id):
     return trxs[-1]["TrxId"]
 
 
-def SaveNodeTrxstoFile(url, jwt, datadir, group_id=None, progress: dict = None):
+def get_all_trxs_from_new_chain(
+    client, group_id, starttrx, timestamp="1679283276688999936"
+):
+    """从新链中读取所有 trxs"""
+    f = lambda ts: str(ts)[:16]
+    client.group_id = group_id
+    while True:
+        trxs = client.api.get_content(starttrx=starttrx, num=200)
+        if not trxs:
+            break
+        # 1679987917118919837
+        for trx in trxs:
+            starttrx = trxs[-1]["TrxId"]
+            # 设定一个时间点，只读取这个时间点之后的 trxs
+            if f(trx["TimeStamp"]) <= f(timestamp):
+                continue
+            yield trx
+
+
+def SaveNodeTrxstoFile(
+    url, jwt, datadir, group_id=None, progress: dict = None, client_type="old"
+):
     """
     把旧链全节点的所有 groups trxs 内容数据写入到 datadir 目录下的文件
     progress = {group_id: trx_id}
     """
-
-    bot = FullNode(api_base=url, jwt_token=jwt)
+    if client_type == "old":
+        bot = OldFullNode(api_base=url, jwt_token=jwt)
+    else:
+        bot = NewFullNode(api_base=url, jwt_token=jwt)
     # 检查文件夹是否存在，如果不存在则创建
     if not os.path.exists(datadir):
         os.makedirs(datadir)
@@ -73,7 +97,11 @@ def SaveNodeTrxstoFile(url, jwt, datadir, group_id=None, progress: dict = None):
         n = 0
         max_trxs_num = 200
         itrxs = []
-        for trx in bot.api.get_group_all_contents(trx_id=starttrx):
+        if client_type == "old":
+            all_trxs = bot.api.get_group_all_contents(trx_id=starttrx)
+        else:
+            all_trxs = get_all_trxs_from_new_chain(bot, group_id, starttrx)
+        for trx in all_trxs:
             n += 1
             if n >= max_trxs_num:
                 save_to_file(bot, datadir, itrxs)
