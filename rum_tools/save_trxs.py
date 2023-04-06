@@ -25,7 +25,7 @@ def save_to_file(bot, datadir, trxs):
         logger.info("%s trxs save trxs to file: %s", len(trxs), fname)
 
 
-def get_progress(bot, datadir, group_id):
+def get_progress(datadir, group_id):
     """从 datadir 目录下的文件中读取进度信息"""
     jsonfiles = Dir(datadir).search_files_by_types("json")
     groupfiles = [f for f in jsonfiles if group_id in f]
@@ -40,7 +40,6 @@ def get_all_trxs_from_new_chain(
     client, group_id, starttrx, timestamp="1679283276688999936"
 ):
     """从新链中读取所有 trxs"""
-    f = lambda ts: str(ts)[:16]
     client.group_id = group_id
     while True:
         trxs = client.api.get_content(starttrx=starttrx, num=200)
@@ -50,7 +49,7 @@ def get_all_trxs_from_new_chain(
         for trx in trxs:
             starttrx = trxs[-1]["TrxId"]
             # 设定一个时间点，只读取这个时间点之后的 trxs
-            if f(trx["TimeStamp"]) <= f(timestamp):
+            if str(trx["TimeStamp"])[:16] <= str(timestamp)[:16]:
                 continue
             yield trx
 
@@ -89,7 +88,7 @@ def SaveNodeTrxstoFile(
         if group_id not in bot.api.groups_id:
             logger.info("group %s not exist", group_id)
             continue
-        starttrx = progress.get(group_id) or get_progress(bot, datadir, group_id)
+        starttrx = progress.get(group_id) or get_progress(datadir, group_id)
         progress[group_id] = starttrx
         bot.group_id = group_id
         info = bot.api.group_info()

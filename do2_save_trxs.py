@@ -7,9 +7,7 @@ import logging
 
 from rum_tools import SaveTrxs
 
-logging.basicConfig(
-    level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.DEBUG)
 
 jwt = "eyJhbGciOiJIUzI...r2L04"
 

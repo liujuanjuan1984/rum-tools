@@ -1,5 +1,7 @@
 pyrage
 rumpy
 officy
-quorum_mininode_py
-quorum_data_py
+
+quorum_fullnode_py>=1.2.0
+quorum_mininode_py>=1.2.1
+quorum_data_py>=1.1.5

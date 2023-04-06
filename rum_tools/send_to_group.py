@@ -7,9 +7,7 @@ import time
 
 from officy import Dir, JsonFile
 from quorum_data_py import converter
-from quorum_mininode_py import MiniNode, RumAccount
-from quorum_mininode_py.api import LightNodeAPI
-from quorum_mininode_py.client._http import HttpRequest
+from quorum_mininode_py import MiniNode
 
 logger = logging.getLogger(__name__)
 
@@ -54,9 +52,8 @@ def SendToGroup(keysfile, datadir, group_id, seed, progressfile, client_type="ol
 
     for pubkey, pvtkey in keys.items():
         logger.info("send from group %s, pubkey %s", group_id, pubkey)
-        rum.account = RumAccount(pvtkey)
-        http = HttpRequest(rum.group.chainapi, rum.group.jwt)
-        rum.api = LightNodeAPI(http, rum.group, rum.account)
+        rum.change_account(pvtkey)
+
         sent_trxs = progress.get(pubkey, {})
         for trx in get_trxs_from_local_files(datadir, group_id, pubkey):
             if trx["TrxId"] in sent_trxs:
@@ -65,7 +62,7 @@ def SendToGroup(keysfile, datadir, group_id, seed, progressfile, client_type="ol
                 new = converter.from_old_chain(trx)
             else:
                 new = converter.from_new_chain(trx)
-            # 标记删除的 trx 不重发
+            # 标记删除的 trx 不重发 #TODO:converter 修改结构
             if (
                 new.get("data", {}).get("object", {}).get("content")
                 == "OBJECT_STATUS_DELETED"
